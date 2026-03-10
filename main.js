@@ -255,7 +255,49 @@ function getTotalActiveHoursPerMonth(textFile, driverID, month) {
 // Returns: string formatted as hhh:mm:ss
 // ============================================================
 function getRequiredHoursPerMonth(textFile, rateFile, bonusCount, driverID, month) {
-    // TODO: Implement this function
+    // Read rate file to get tier
+    let rateData = fs.readFileSync(rateFile, 'utf8');
+    let rateLines = rateData.split('\n').filter(line => line.trim() !== '').map(line => line.trim());
+    let tier = null;
+    for (let line of rateLines) {  // No header to skip
+        let parts = line.split(',').map(p => p.trim());
+        if (parts[0] === driverID) {
+            tier = parts[3];  // Tier is index 3
+            break;
+        }
+    }
+    
+    if (!tier) return '0:00:00';  // Driver not found
+    
+    // Set base required hours based on tier
+    let baseRequired;
+    if (tier === 'A' || tier === '2') baseRequired = '32:00:00';
+    else if (tier === 'B' || tier === '3') baseRequired = '24:00:00';
+    else if (tier === 'C' || tier === '1') baseRequired = '16:48:00';
+    else baseRequired = '0:00:00';
+    
+    // Parse base to seconds
+    function parseDuration(timeStr) {
+        let [h, m, s] = timeStr.split(':').map(Number);
+        return h * 3600 + m * 60 + s;
+    }
+    
+    let baseSec = parseDuration(baseRequired);
+    
+    // Reduction per bonus: 5:12:00 = 5*3600 + 12*60 = 18000 + 720 = 18720 seconds
+    let reductionSec = 18720;
+    let requiredSec = baseSec - bonusCount * reductionSec;
+    if (requiredSec < 0) requiredSec = 0;  // Minimum 0
+    
+    // Format to hhh:mm:ss
+    function formatDuration(sec) {
+        let hours = Math.floor(sec / 3600);
+        let minutes = Math.floor((sec % 3600) / 60);
+        let seconds = sec % 60;
+        return `${hours}:${minutes.toString().padStart(2,'0')}:${seconds.toString().padStart(2,'0')}`;
+    }
+    
+    return formatDuration(requiredSec);
 }
 
 // ============================================================
@@ -267,7 +309,43 @@ function getRequiredHoursPerMonth(textFile, rateFile, bonusCount, driverID, mont
 // Returns: integer (net pay)
 // ============================================================
 function getNetPay(driverID, actualHours, requiredHours, rateFile) {
-    // TODO: Implement this function
+    // Read rate file to get base pay
+    let rateData = fs.readFileSync(rateFile, 'utf8');
+    let rateLines = rateData.split('\n').filter(line => line.trim() !== '').map(line => line.trim());
+    let basePay = null;
+    for (let line of rateLines) {  // No header to skip
+        let parts = line.split(',').map(p => p.trim());
+        if (parts[0] === driverID) {
+            basePay = parseInt(parts[2]);  // BasePay is index 2
+            break;
+        }
+    }
+    
+    if (basePay === null) return 0;  // Driver not found
+    
+    // Parse hours to decimal
+    function parseHours(timeStr) {
+        let [h, m, s] = timeStr.split(':').map(Number);
+        return h + m / 60 + s / 3600;
+    }
+    
+    let actualH = parseHours(actualHours);
+    let requiredH = parseHours(requiredHours);
+    
+    let pay = basePay;
+    if (actualH >= requiredH) {
+        // Extra hours: deduct at rate 24.17 per hour
+        let extra = actualH - requiredH;
+        pay -= extra * 24.17;
+    } else {
+        // Short hours: deduct if difference > 2 hours
+        let short = requiredH - actualH;
+        if (short > 2) {
+            pay -= (short - 2) * 24.17;
+        }
+    }
+    
+    return Math.round(pay);
 }
 
 module.exports = {
