@@ -111,7 +111,7 @@ function addShiftRecord(textFile, shiftObj) {
         let data = fs.readFileSync(textFile, 'utf8');
         let lines = data.split('\n').filter(line => line.trim() !== '');
         for (let line of lines.slice(1)) {  // Skip header
-            let parts = line.split(',');
+            let parts = line.split(',').map(p => p.trim());
             if (parts[0] === shiftObj.driverID && parts[2] === shiftObj.date) {
                 return {};  // Duplicate found
             }
@@ -165,7 +165,7 @@ function setBonus(textFile, driverID, date, newValue) {
     let updated = false;
     
     for (let i = 1; i < lines.length; i++) {  // Skip header
-        let parts = lines[i].split(',');
+        let parts = lines[i].split(',').map(p => p.trim());
         if (parts.length >= 10 && parts[0] === driverID && parts[2] === date) {
             parts[9] = newValue.toString();
             lines[i] = parts.join(',');
@@ -187,7 +187,24 @@ function setBonus(textFile, driverID, date, newValue) {
 // Returns: number (-1 if driverID not found)
 // ============================================================
 function countBonusPerMonth(textFile, driverID, month) {
-    // TODO: Implement this function
+    let data = fs.readFileSync(textFile, 'utf8');
+    let lines = data.split('\n').filter(line => line.trim() !== '');
+    let count = 0;
+    let found = false;
+    let targetMonth = month.padStart(2, '0');
+    
+    for (let line of lines.slice(1)) {  // Skip header
+        let parts = line.split(',').map(p => p.trim());
+        if (parts.length >= 10 && parts[0] === driverID) {
+            found = true;
+            let recordMonth = parts[2].split('-')[1];  // yyyy-mm-dd, month is [1]
+            if (recordMonth === targetMonth && parts[9] === 'true') {
+                count++;
+            }
+        }
+    }
+    
+    return found ? count : -1;
 }
 
 // ============================================================
