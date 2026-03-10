@@ -106,7 +106,49 @@ function metQuota(date, activeTime) {
 // Returns: object with 10 properties or empty object {}
 // ============================================================
 function addShiftRecord(textFile, shiftObj) {
-    // TODO: Implement this function
+    try {
+        // Check if record already exists
+        let data = fs.readFileSync(textFile, 'utf8');
+        let lines = data.split('\n').filter(line => line.trim() !== '');
+        for (let line of lines.slice(1)) {  // Skip header
+            let parts = line.split(',');
+            if (parts[0] === shiftObj.driverID && parts[2] === shiftObj.date) {
+                return {};  // Duplicate found
+            }
+        }
+        
+        // Calculate the required fields using existing functions
+        let shiftDuration = getShiftDuration(shiftObj.startTime, shiftObj.endTime);
+        let idleTime = getIdleTime(shiftObj.startTime, shiftObj.endTime);
+        let activeTime = getActiveTime(shiftDuration, idleTime);
+        let metQuotaResult = metQuota(shiftObj.date, activeTime);
+        
+        // Create the record object with lowercase properties
+        let record = {
+            driverID: shiftObj.driverID,
+            driverName: shiftObj.driverName,
+            date: shiftObj.date,
+            startTime: shiftObj.startTime,
+            endTime: shiftObj.endTime,
+            shiftDuration: shiftDuration,
+            idleTime: idleTime,
+            activeTime: activeTime,
+            metQuota: metQuotaResult,
+            hasBonus: false  // Initially set to false
+        };
+        
+        // Format as CSV line
+        let line = `${record.driverID},${record.driverName},${record.date},${record.startTime},${record.endTime},${record.shiftDuration},${record.idleTime},${record.activeTime},${record.metQuota},${record.hasBonus}\n`;
+        
+        // Append to the file
+        fs.appendFileSync(textFile, line);
+        
+        // Return the record object
+        return record;
+    } catch (error) {
+        // Return empty object on error
+        return {};
+    }
 }
 
 // ============================================================
