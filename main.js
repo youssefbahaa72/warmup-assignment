@@ -332,20 +332,22 @@ function getNetPay(driverID, actualHours, requiredHours, rateFile) {
     let actualH = parseHours(actualHours);
     let requiredH = parseHours(requiredHours);
     
-    let pay = basePay;
+    // base salary remains unless there is a significant shortfall
     if (actualH >= requiredH) {
-        // Extra hours: deduct at rate 24.17 per hour
-        let extra = actualH - requiredH;
-        pay -= extra * 24.17;
-    } else {
-        // Short hours: deduct if difference > 2 hours
-        let short = requiredH - actualH;
-        if (short > 2) {
-            pay -= (short - 2) * 24.17;
-        }
+        return basePay;
     }
     
-    return Math.round(pay);
+    let short = requiredH - actualH;
+    // drivers are allowed up to 18 hours short without penalty
+    if (short <= 18) {
+        return basePay;
+    }
+    
+    // deduct 7.5 currency units for every hour short beyond the allowance
+    let deduction = short * 7.5;
+    let net = basePay - deduction;
+    if (net < 0) net = 0;
+    return Math.round(net);
 }
 
 module.exports = {
